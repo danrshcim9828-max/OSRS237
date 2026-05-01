@@ -1,0 +1,36 @@
+# OSRS Private Server Configuration
+# Revision: 237 | Protocol: RSProt 237
+
+server:
+  host: "0.0.0.0"
+  port: 43594          # Standard OSRS port
+  revision: 237
+  name: "RSProt237 Server"
+
+# RSProx proxy configuration
+# RSProx intercepts traffic between the OSRS client and this server.
+# Run RSProx pointed at this server's host:port.
+rsprox:
+  enabled: false        # Set true when routing through RSProx
+  proxy_port: 40000     # Port RSProx listens on (client connects here)
+  target_host: "127.0.0.1"
+  target_port: 43594
+
+login:
+  max_connections_per_ip: 10
+  token: "testtoken"    # Shared secret for JS5 / login validation
+
+js5:
+  # Cache serving port (JS5 / update server)
+  port: 43595
+  cache_path: "./cache"
+
+game:
+  tick_rate_ms: 600     # One game tick = 600ms
+  max_players: 2000
+  starting_x: 3222
+  starting_y: 3218
+  starting_plane: 0
+
+logging:
+  level: "DEBUG"
