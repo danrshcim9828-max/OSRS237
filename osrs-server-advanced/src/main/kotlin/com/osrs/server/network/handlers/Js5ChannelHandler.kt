@@ -27,8 +27,6 @@ private val logger = KotlinLogging.logger {}
  * at [cacheDir]. Files are named `archive_group.dat`.
  * When a requested file is absent, an empty response with length 0 is sent
  * so the client does not hang.
- *
- * TODO: wire into [GameChannelInitializer] when connection type 15 is detected.
  */
 class Js5ChannelHandler(
     private val cacheDir: java.io.File

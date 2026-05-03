@@ -7,7 +7,6 @@ import kotlinx.serialization.Serializable
 data class AppConfig(
     val server: ServerConfig = ServerConfig(),
     val rsprox: RsProxConfig = RsProxConfig(),
-    val login: LoginConfig = LoginConfig(),
     val js5: Js5Config = Js5Config(),
     val game: GameConfig = GameConfig(),
     val logging: LoggingConfig = LoggingConfig()
@@ -18,7 +17,7 @@ data class ServerConfig(
     val host: String = "0.0.0.0",
     val port: Int = 43594,
     val revision: Int = 237,
-    val name: String = "RSProt237 Server"
+    val name: String = "OSRS Private Server"
 )
 
 @Serializable
@@ -30,21 +29,15 @@ data class RsProxConfig(
 )
 
 @Serializable
-data class LoginConfig(
-    val max_connections_per_ip: Int = 10,
-    val token: String = "testtoken"
-)
-
-@Serializable
 data class Js5Config(
-    val port: Int = 43595,
-    val cache_path: String = "./cache"
+    val cache_path: String = "./cache",
+    val port: Int = 43595
 )
 
 @Serializable
 data class GameConfig(
     val tick_rate_ms: Long = 600,
-    val max_players: Int = 2000,
+    val max_players: Int = 2046,
     val starting_x: Int = 3222,
     val starting_y: Int = 3218,
     val starting_plane: Int = 0
@@ -64,15 +57,10 @@ object AppConfigLoader {
             ?: System.getenv(CONFIG_PATH_ENV)?.takeIf { it.isNotBlank() }
 
         val stream = when {
-            explicitPath != null -> {
-                val file = java.io.File(explicitPath)
-                require(file.exists() && file.isFile) { "Config file not found at '$explicitPath'" }
-                file.inputStream()
-            }
+            explicitPath != null -> java.io.File(explicitPath).inputStream()
             else -> AppConfigLoader::class.java.classLoader.getResourceAsStream("config.yaml")
                 ?: error("Missing config.yaml resource")
         }
-
         return Yaml.default.decodeFromStream(AppConfig.serializer(), stream)
     }
 }

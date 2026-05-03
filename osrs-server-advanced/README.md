@@ -47,6 +47,19 @@ osrs-server/
 The server loads `src/main/resources/config.yaml` on startup.
 Update `server.port`, `server.revision`, and `rsprox.enabled` there to change runtime behavior.
 
+You can also override the config path using:
+
+```bash
+./gradlew run -Dosrs.config.path=/path/to/config.yaml
+```
+
+Or via environment variable:
+
+```bash
+export OSRS_CONFIG_PATH=/path/to/config.yaml
+./gradlew run
+```
+
 ## Build & Run
 
 ```bash

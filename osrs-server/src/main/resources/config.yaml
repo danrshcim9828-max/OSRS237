@@ -1,0 +1,25 @@
+server:
+  host: "0.0.0.0"
+  port: 43594
+  revision: 237
+  name: "OSRS Private Server"
+
+rsprox:
+  enabled: false
+  proxy_port: 40000
+  target_host: "127.0.0.1"
+  target_port: 43594
+
+js5:
+  cache_path: "./cache"
+  port: 43595
+
+game:
+  tick_rate_ms: 600
+  max_players: 2046
+  starting_x: 3222
+  starting_y: 3218
+  starting_plane: 0
+
+logging:
+  level: "DEBUG"

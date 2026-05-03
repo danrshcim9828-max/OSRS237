@@ -13,18 +13,6 @@ import java.io.File
 
 private val logger = KotlinLogging.logger {}
 
-/**
- * Netty pipeline initializer for game connections.
- *
- * Pipeline (before login):
- *   [LoginDecoder] → [LoginHandler]
- *
- * Pipeline (after successful login):
- *   [GamePacketEncoder] → [GamePacketDecoder] → [GameChannelHandler]
- *
- * When [proxyMode] is true (RSProx in front), ISAAC is skipped: RSProx
- * has already unscrambled opcodes before forwarding.
- */
 class GameChannelInitializer(
     private val world: World,
     private val revision: Int = 237,
@@ -39,11 +27,6 @@ class GameChannelInitializer(
     }
 }
 
-/**
- * Login-phase handler.
- * Receives a decoded [LoginRequest], allocates a player slot, upgrades
- * the pipeline to game-phase codecs, and fires the initial game state.
- */
 @ChannelHandler.Sharable
 class LoginHandler(
     private val world: World,
@@ -54,7 +37,7 @@ class LoginHandler(
     override fun channelRead0(ctx: ChannelHandlerContext, request: LoginRequest) {
         val playerIndex = world.allocatePlayerIndex()
         if (playerIndex == -1) {
-            sendStatus(ctx, 7); return   // world full
+            sendStatus(ctx, 7); return
         }
 
         val player = Player(
@@ -64,7 +47,6 @@ class LoginHandler(
             plane = gameConfig.starting_plane
         ).also { it.index = playerIndex }
 
-        // Build ISAAC pair from login XTEA keys (skip in proxy mode)
         val isaacPair = if (!proxyMode && request.xteaKeys.isNotEmpty()) {
             IsaacPair(request.xteaKeys)
         } else null
@@ -72,13 +54,12 @@ class LoginHandler(
         val session = PlayerSession(ctx.channel(), player)
         world.addPlayer(session)
 
-        // Swap login pipeline → game pipeline
         ctx.pipeline().apply {
             remove("login-decoder")
             remove("login-handler")
-            addLast("game-encoder",  GamePacketEncoder(isaacPair?.encoder))
-            addLast("game-decoder",  GamePacketDecoder(isaacPair?.decoder))
-            addLast("game-handler",  GameChannelHandler(session))
+            addLast("game-encoder", GamePacketEncoder(isaacPair?.encoder))
+            addLast("game-decoder", GamePacketDecoder(isaacPair?.decoder))
+            addLast("game-handler", GameChannelHandler(session))
         }
 
         sendLoginSuccess(ctx, playerIndex, player.rights)
@@ -97,9 +78,6 @@ class LoginHandler(
     }
 }
 
-/**
- * Game-phase inbound handler. Dispatches [ClientPacket]s to [PlayerSession].
- */
 class GameChannelHandler(
     private val session: PlayerSession
 ) : SimpleChannelInboundHandler<ClientPacket>() {
@@ -119,29 +97,11 @@ class GameChannelHandler(
     }
 }
 
-/**
- * Sends the login-OK response (status 2) with rights and player index.
- */
 fun sendLoginSuccess(ctx: ChannelHandlerContext, playerIndex: Int, rights: Int = 0) {
     val buf = ctx.alloc().buffer(5)
     buf.writeByte(2)
     buf.writeByte(rights)
-    buf.writeByte(0)          // not flagged
+    buf.writeByte(0)
     buf.writeShort(playerIndex)
     ctx.writeAndFlush(buf)
-}
-
-/**
- * Extension: build and flush the initial game state packet sequence.
- * Sent immediately after login-OK so the client can load the world.
- */
-fun PlayerSession.sendInitialGameState() {
-    sendRebuildNormal(player.zoneX, player.zoneY, IntArray(0))
-    for (skill in 0..24) sendStat(skill, player.skills[skill], player.xp[skill])
-    sendRunEnergy(player.runEnergy)
-    sendRunWeight(0)
-    sendVarp(173, 0)      // Run mode varp (0=walk, 1=run)
-    sendMessage("Welcome to RSProt 237 Private Server.")
-    sendMessage("Revision ${com.osrs.server.REVISION} | opcodes verified.")
-    flushPackets()
 }
