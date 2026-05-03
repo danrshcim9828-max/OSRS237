@@ -49,9 +49,7 @@ class Js5ChannelHandler(
     // ------------------------------------------------------------------
 
     private fun handleHandshake(ctx: ChannelHandlerContext, buf: ByteBuf) {
-        if (buf.readableBytes() < 1) return
-        buf.readByte() // consume the connection-type byte (already read in LoginDecoder)
-
+        // The login decoder already consumed the initial connection-type byte.
         val resp = ctx.alloc().buffer(1)
         resp.writeByte(0) // status OK
         ctx.writeAndFlush(resp)

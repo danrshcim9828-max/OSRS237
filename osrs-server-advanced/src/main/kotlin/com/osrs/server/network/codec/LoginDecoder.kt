@@ -1,10 +1,12 @@
 package com.osrs.server.network.codec
 
 import com.osrs.server.login.LoginRequest
+import com.osrs.server.network.handlers.Js5ChannelHandler
 import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandlerContext
 import io.netty.handler.codec.ByteToMessageDecoder
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.io.File
 import java.math.BigInteger
 
 private val logger = KotlinLogging.logger {}
@@ -36,7 +38,8 @@ private val logger = KotlinLogging.logger {}
 class LoginDecoder(
     private val revision: Int = 237,
     private val rsaPrivateKey: BigInteger? = null,   // null = skip RSA (proxy mode)
-    private val rsaModulus: BigInteger? = null
+    private val rsaModulus: BigInteger? = null,
+    private val js5CacheDir: File? = null
 ) : ByteToMessageDecoder() {
 
     private enum class State {
@@ -64,7 +67,7 @@ class LoginDecoder(
         when (connectionType) {
             14 -> {
                 // Initial connection — send seed response
-                logger.debug { "JS5/init connection from ${ctx.channel().remoteAddress()}" }
+                logger.debug { "Game login connection from ${ctx.channel().remoteAddress()}" }
                 val response = ctx.alloc().buffer(17)
                 response.writeByte(0) // status OK
                 repeat(8) { response.writeByte(0) }
@@ -74,10 +77,18 @@ class LoginDecoder(
                 state = State.READ_LOGIN_TYPE
             }
             15 -> {
-                // JS5 update connection
-                logger.debug { "JS5 update server connection" }
-                // Hand off to JS5 handler — for now just close
-                ctx.close()
+                if (js5CacheDir == null) {
+                    logger.warn { "JS5 requested but cache directory not configured" }
+                    ctx.close(); return
+                }
+
+                logger.debug { "JS5 update connection from ${ctx.channel().remoteAddress()}" }
+                val remainder = if (buf.isReadable) buf.readRetainedSlice(buf.readableBytes()) else null
+                val pipeline = ctx.pipeline()
+                pipeline.remove("login-handler")
+                pipeline.addLast("js5-handler", Js5ChannelHandler(js5CacheDir))
+                pipeline.remove(this)
+                if (remainder != null) ctx.fireChannelRead(remainder)
             }
             else -> {
                 logger.warn { "Unknown connection type: $connectionType" }
@@ -153,10 +164,7 @@ class LoginDecoder(
 
             // Password
             val password = readString(decryptedBlock)
-
-            // Username comes after XTEA decrypt of second block — simplified here
-            // In full impl, decrypt remaining payload with innerXteaKeys
-            val username = readString(payload) // simplified: username in plaintext segment
+            val username = readString(decryptedBlock)
 
             logger.info { "Login attempt: user=$username type=${if (loginType == 16) "new" else "reconnect"}" }
 
@@ -174,10 +182,9 @@ class LoginDecoder(
 
     private fun readString(buf: ByteBuf): String {
         val sb = StringBuilder()
-        var b: Int
         while (buf.isReadable) {
-            b = buf.readUnsignedByte().toInt()
-            if (b == 10) break   // OSRS uses 0x0A (newline) as string terminator
+            val b = buf.readUnsignedByte().toInt()
+            if (b == 0) break
             sb.append(b.toChar())
         }
         return sb.toString()

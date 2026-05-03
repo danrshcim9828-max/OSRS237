@@ -8,6 +8,7 @@ import com.osrs.server.network.session.PlayerSession
 import io.netty.channel.*
 import io.netty.channel.socket.SocketChannel
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.io.File
 
 private val logger = KotlinLogging.logger {}
 
@@ -26,11 +27,12 @@ private val logger = KotlinLogging.logger {}
 class GameChannelInitializer(
     private val world: World,
     private val revision: Int = 237,
-    private val proxyMode: Boolean = false
+    private val proxyMode: Boolean = false,
+    private val js5CacheDir: File? = null
 ) : ChannelInitializer<SocketChannel>() {
 
     override fun initChannel(ch: SocketChannel) {
-        ch.pipeline().addLast("login-decoder", LoginDecoder(revision = revision))
+        ch.pipeline().addLast("login-decoder", LoginDecoder(revision = revision, js5CacheDir = js5CacheDir))
         ch.pipeline().addLast("login-handler", LoginHandler(world, proxyMode))
     }
 }

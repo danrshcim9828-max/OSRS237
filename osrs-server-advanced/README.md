@@ -42,6 +42,11 @@ osrs-server/
 
 ---
 
+## Configuration
+
+The server loads `src/main/resources/config.yaml` on startup.
+Update `server.port`, `server.revision`, and `rsprox.enabled` there to change runtime behavior.
+
 ## Build & Run
 
 ```bash

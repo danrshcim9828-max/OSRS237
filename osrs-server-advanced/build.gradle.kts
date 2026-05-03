@@ -1,28 +1,34 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.9.23"
-    kotlin("plugin.serialization") version "1.9.23"
+    kotlin("jvm") version "2.0.0"
+    kotlin("plugin.serialization") version "2.0.0"
     application
 }
 
 group = "com.osrs"
 version = "1.0.0"
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
+}
+
 repositories {
     mavenCentral()
     maven("https://jitpack.io")
-    // RSProt is published on JitPack from blurite/rsprot
-    maven("https://maven.blurite.io/releases") // if published on own maven
+    // RSProt is expected to be sourced from JitPack once the correct artifact
+    // coordinates are available. The current project does not require the
+    // library at compile time because packet handling is implemented locally.
 }
 
 val nettyVersion = "4.1.108.Final"
-val rspRotVersion = "1.0.0-beta.4" // RSProt revision 237 compatible release
+
 
 dependencies {
-    // RSProt 237 - OSRS Protocol Library by blurite
-    // RSProt provides typed packet definitions, codec, and Huffman support
-    implementation("com.github.blurite:rsprot:$rspRotVersion")
+    // RSProt dependency is intentionally omitted for local compilation until
+    // the published artifact becomes available.
+    // implementation("com.github.blurite:rsprot:$rspRotVersion")
 
     // Netty - async network I/O
     implementation("io.netty:netty-all:$nettyVersion")
@@ -52,6 +58,10 @@ tasks.withType<KotlinCompile> {
         jvmTarget = "21"
         freeCompilerArgs += listOf("-Xcontext-receivers", "-opt-in=kotlin.RequiresOptIn")
     }
+}
+
+tasks.withType<JavaCompile> {
+    options.release.set(21)
 }
 
 tasks.withType<Jar> {

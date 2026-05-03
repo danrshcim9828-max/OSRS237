@@ -1,5 +1,6 @@
 package com.osrs.server
 
+import com.osrs.server.config.AppConfigLoader
 import com.osrs.server.game.world.World
 import com.osrs.server.network.codec.ClientProt
 import com.osrs.server.network.codec.ServerProt
@@ -12,12 +13,11 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import java.io.File
 
 private val logger = KotlinLogging.logger {}
 
-const val REVISION = 237
-const val PORT = 43594
-const val HOST = "0.0.0.0"
+var REVISION = 237
 
 /**
  * RSProt 237 OSRS Private Server
@@ -28,20 +28,23 @@ const val HOST = "0.0.0.0"
  *   java -jar osrs-server.jar
  *
  * RSProx Integration:
- *   1. Start this server on PORT (43594)
- *   2. Configure RSProx to target 127.0.0.1:43594
+ *   1. Start this server on PORT (43594) or the port configured in config.yaml
+ *   2. Configure RSProx to target this server's host and port
  *   3. Point the OSRS client at RSProx's listen port
- *   4. Set proxyMode=true in GameChannelInitializer to skip ISAAC decode
+ *   4. Set `rsprox.enabled: true` in config.yaml to skip ISAAC decode
  */
 fun main() {
+    val config = AppConfigLoader.load()
+    REVISION = config.server.revision
+
     logger.info { "==================================================" }
-    logger.info { " OSRS Private Server — RSProt Revision $REVISION   " }
+    logger.info { " ${config.server.name} — RSProt Revision $REVISION   " }
     logger.info { "==================================================" }
 
     // Validate opcode tables on startup
     validateOpcodeTables()
 
-    val world = World(maxPlayers = 2000, tickRateMs = 600)
+    val world = World(maxPlayers = config.game.max_players, tickRateMs = config.game.tick_rate_ms)
     val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     // Start game loop
@@ -58,17 +61,22 @@ fun main() {
             .childOption(ChannelOption.TCP_NODELAY, true)
             .childOption(ChannelOption.SO_KEEPALIVE, true)
             .childHandler(
-                GameChannelInitializer(
+                        GameChannelInitializer(
                     world = world,
                     revision = REVISION,
-                    proxyMode = false  // Set true when using RSProx
+                    proxyMode = config.rsprox.enabled,
+                    js5CacheDir = File(config.js5.cache_path)
                 )
             )
 
-        val channel = bootstrap.bind(HOST, PORT).sync().channel()
+        val channel = bootstrap.bind(config.server.host, config.server.port).sync().channel()
 
-        logger.info { "Server listening on $HOST:$PORT (rev=$REVISION)" }
-        logger.info { "RSProx: point your proxy at this server's port $PORT" }
+        logger.info { "Server listening on ${config.server.host}:${config.server.port} (rev=$REVISION)" }
+        if (config.rsprox.enabled) {
+            logger.info { "RSProx mode enabled. Point RSProx at ${config.rsprox.target_host}:${config.rsprox.target_port}" }
+        } else {
+            logger.info { "RSProx disabled. Connect OSRS client directly to this server." }
+        }
         logger.info { "" }
         logger.info { "Loaded ${ServerProt.entries.size} server opcodes, ${ClientProt.entries.size} client opcodes" }
 
