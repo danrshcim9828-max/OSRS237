@@ -1,169 +1,65 @@
-# OSRS Private Server — RSProt 237 + RSProx
+# OSRS Private Server — RSProt 237 Framework (JDK 21 / Gradle 8.7+)
 
-A minimal-but-correct OSRS private server network layer built for revision **237**,
-using **RSProt** (by blurite) as the protocol library and supporting **RSProx**
-for packet inspection/modification.
+This is the **active RSProt 237 server framework** in this repository.
+It is structured for cross-platform builds and operation on Windows/Linux/macOS using **JDK 21** and **Gradle 8.7+**.
 
----
+## Key Targets
 
-## Project Structure
+- Revision: **237**
+- Protocol alignment source: `rsprox/OPCODE_ALIGNMENT.md`
+- Runtime: **Java 21**
+- Build system: **Gradle Kotlin DSL**
+- Network stack: **Netty**
 
-```
-osrs-server/
-├── build.gradle.kts                     # Kotlin/Gradle build, RSProt dep
-├── src/main/kotlin/com/osrs/server/
-│   ├── ServerMain.kt                    # Entry point, opcode validation
-│   ├── game/
-│   │   ├── entity/Player.kt             # Player entity
-│   │   └── world/World.kt               # World + 600ms game loop
-│   ├── login/
-│   │   └── LoginRequest.kt              # Login data class
-│   └── network/
-│       ├── codec/
-│       │   ├── OpcodeTable.kt           # ★ ServerProt + ClientProt aligned to rev 237
-│       │   ├── GamePacketCodec.kt       # Encoder / decoder (ISAAC-aware)
-│       │   └── LoginDecoder.kt          # OSRS rev 237 login handshake
-│       ├── handlers/
-│       │   └── GameChannelHandler.kt    # Netty pipeline + login→game upgrade
-│       └── session/
-│           └── PlayerSession.kt         # Per-player packet write helpers + dispatch
-└── rsprox/
-    ├── rsprox.properties                # RSProx config (point at this server)
-    └── OPCODE_ALIGNMENT.md             # Full opcode mapping + collision notes
+## Project Layout
+
+- `src/main/kotlin/com/osrs/server` — server framework code.
+- `src/main/resources/config.yaml` — runtime server settings.
+- `rsprox/OPCODE_ALIGNMENT.md` — opcode cross-reference notes for rev 237.
+- `scripts/build-windows.ps1` — Windows build entrypoint.
+- `scripts/build-linux.sh` — Linux/macOS build entrypoint.
+
+## Windows Build (PowerShell)
+
+```powershell
+cd osrs-server-advanced
+./scripts/build-windows.ps1
 ```
 
----
+Optional task:
 
-## Prerequisites
+```powershell
+./scripts/build-windows.ps1 -Task test
+```
 
-- **Java 21+**
-- **Gradle 8.7** (wrapper included)
-- RSProt 237 on JitPack (fetched automatically by Gradle)
-
----
-
-## Configuration
-
-The server loads `src/main/resources/config.yaml` on startup.
-Update `server.port`, `server.revision`, and `rsprox.enabled` there to change runtime behavior.
-
-You can also override the config path using:
+## Linux/macOS Build
 
 ```bash
-./gradlew run -Dosrs.config.path=/path/to/config.yaml
+cd osrs-server-advanced
+./scripts/build-linux.sh
 ```
 
-Or via environment variable:
+Optional task:
 
 ```bash
-export OSRS_CONFIG_PATH=/path/to/config.yaml
-./gradlew run
+./scripts/build-linux.sh test
 ```
 
-## Build & Run
+## Direct Gradle Commands
 
 ```bash
-# Clone and enter project
-cd osrs-server
-
-# Build fat jar
-./gradlew jar
-
-# Run directly
-./gradlew run
-
-# Or run the fat jar
-java -jar build/libs/osrs-server-1.0.0.jar
+cd osrs-server-advanced
+gradle clean build
+gradle run
 ```
 
-Server starts on `0.0.0.0:43594` (standard OSRS port).
+## JDK 21 Notes
 
----
+This project enforces Java toolchain 21 in `build.gradle.kts`.
+If your system default Java is not 21, configure `JAVA_HOME` to a JDK 21 install.
 
-## RSProx Integration
+## RSProt 237 Alignment Workflow
 
-RSProx (https://github.com/blurite/rsprox) acts as a proxy between the OSRS
-client and your server, decoding and logging all packets using RSProt's codec.
-
-### Setup
-
-1. **Start this server** on port 43594
-2. **Configure RSProx** using `rsprox/rsprox.properties`:
-   ```
-   server.host=127.0.0.1
-   server.port=43594
-   proxy.port=40000
-   revision=237
-   ```
-3. **Start RSProx**:
-   ```bash
-   java -jar rsprox.jar --config rsprox/rsprox.properties
-   ```
-4. **Point the OSRS client** at `127.0.0.1:40000` (RSProx listen port)
-5. **Set proxy mode** in `GameChannelInitializer`:
-   ```kotlin
-   proxyMode = true   // skips ISAAC decode; RSProx already decoded it
-   ```
-
-### What RSProx does
-- Intercepts every packet between client and server
-- Decodes packet names/fields using RSProt's definitions
-- Logs to file + console
-- Allows packet modification/injection via plugins
-
----
-
-## Opcode Alignment
-
-The file `src/main/kotlin/.../network/codec/OpcodeTable.kt` contains:
-- `ServerProt` enum — all server→client opcodes for rev 237
-- `ClientProt` enum — all client→server opcodes for rev 237
-
-On startup, `validateOpcodeTables()` checks for duplicate opcode assignments
-and logs any conflicts. **All conflicts must be resolved against RSProt's source**
-before the server will correctly communicate with the client.
-
-### Verifying against RSProt source
-
-```bash
-git clone https://github.com/blurite/rsprot
-cd rsprot
-# Find the rev237 tag
-git tag | grep 237
-git checkout <tag>
-
-# View server opcodes
-cat protocol/src/main/kotlin/net/rsprot/protocol/game/outgoing/GameServerProt.kt
-
-# View client opcodes  
-cat protocol/src/main/kotlin/net/rsprot/protocol/game/incoming/GameClientProt.kt
-```
-
-Compare each opcode number to `OpcodeTable.kt` and update any mismatches.
-
-### Known potential conflicts (see `rsprox/OPCODE_ALIGNMENT.md`)
-- `CLIENTSCRIPT` vs `REBUILD_REGION` (both opcode 3 in initial table)
-- `OBJ_DEL` vs `NPC_INFO_LARGE_VIEWPORT` (both opcode 32)
-- `CAM_SMOOTHRESET` vs `VARP_SMALL` (both opcode 62)
-
-These may be rev-specific — verify against the rev237 RSProt tag.
-
----
-
-## Extending the Server
-
-| Task | File |
-|------|------|
-| Add a new packet handler | `PlayerSession.kt` → `handlePacket()` |
-| Send a new packet type | Add to `ServerProt` + add write helper in `PlayerSession` |
-| Add NPC spawning | `World.kt` + new `NpcEntity` class |
-| Add pathfinding | `Player.walkTo()` in `Player.kt` |
-| Add a cache/JS5 server | New `Js5ChannelInitializer` in `network/handlers/` |
-| Add RSA key pair | Generate with `openssl`, pass to `LoginDecoder` |
-
----
-
-## License
-
-This project is a private development scaffold. RSProt is © blurite under its
-own license. OSRS game content is © Jagex Ltd.
+1. Use opcode expectations documented in `rsprox/OPCODE_ALIGNMENT.md`.
+2. Keep `network/codec/OpcodeTable.kt` synchronized to the rev 237 protocol source.
+3. Verify login and game packet flow through RSProx before feature expansion.
