@@ -1,17 +1,22 @@
-# OSRS Private Server
+# OSRS237 Repository
 
-This repository now contains a clean OSRS private server implementation based on the deep research guide.
-The active project is located in `osrs-server/`.
+Primary framework implementation is in:
 
-## Build & run
+- `osrs-server-advanced/`
+
+This variant is configured around RSProt revision 237 guidance and includes cross-platform build scripts for Windows and Linux/macOS with JDK 21 + Gradle 8.7+.
+
+## Quick Start
 
 ```bash
-cd osrs-server
-./gradlew run
+cd osrs-server-advanced
+gradle clean build
+gradle run
 ```
 
-Use `-Dosrs.config.path=/path/to/config.yaml` or `OSRS_CONFIG_PATH=/path/to/config.yaml` to override the default config.
+For Windows PowerShell, use:
 
-## Legacy backup
-
-The previous implementation has been preserved in `osrs-server-advanced/` for reference.
+```powershell
+cd osrs-server-advanced
+./scripts/build-windows.ps1
+```
